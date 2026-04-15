@@ -8,6 +8,7 @@ interface AuthContextType {
   login: (user: User, token: string) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  isReady: boolean;
 }
 
 // create the context with a default value
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   // on app load — check if token exists in localStorage
   useEffect(() => {
@@ -31,6 +33,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       socket.auth = { token: savedToken };
       socket.connect();
     }
+
+    setIsReady(true);
   }, []);
 
   const login = (user: User, token: string) => {
@@ -61,7 +65,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       token,
       login,
       logout,
-      isAuthenticated: !!user  // !! converts to boolean
+      isAuthenticated: !!user,  // !! converts to boolean
+      isReady
     }}>
       {children}
     </AuthContext.Provider>

@@ -8,6 +8,7 @@ export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [roomPassword, setRoomPassword] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -36,11 +37,12 @@ export default function RoomList() {
     setSubmitting(true);
 
     try {
-      const res = await api.createRoom(name, description);
+      const res = await api.createRoom(name, description, roomPassword || undefined);
       const room = res.data;
       setRooms((current) => [room as Room, ...current]);
       setName('');
       setDescription('');
+      setRoomPassword('');
       navigate('/rooms/' + room.id);
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to create room');
@@ -53,7 +55,7 @@ export default function RoomList() {
     <div style={styles.page}>
       <div style={styles.hero}>
         <div>
-          <p style={styles.eyebrow}>Realtime Chat</p>
+          <p style={styles.eyebrow}>v-chat</p>
           <h1 style={styles.title}>Welcome, {user?.username}</h1>
           <p style={styles.subtitle}>
             Pick a room to jump into the conversation, or create a new one for your team.
@@ -69,7 +71,7 @@ export default function RoomList() {
         <section style={styles.panel}>
           <h2 style={styles.sectionTitle}>Create Room</h2>
           <p style={styles.sectionCopy}>
-            This form sends a protected `POST /api/rooms` request. The JWT is added automatically by Axios.
+            Start a fresh space for your team, topic, or conversation.
           </p>
 
           <form onSubmit={handleCreateRoom} style={styles.form}>
@@ -87,6 +89,13 @@ export default function RoomList() {
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
             />
+            <input
+              style={styles.input}
+              type="password"
+              placeholder="Room password (optional)"
+              value={roomPassword}
+              onChange={(e) => setRoomPassword(e.target.value)}
+            />
             <button type="submit" style={styles.primaryButton} disabled={submitting}>
               {submitting ? 'Creating...' : 'Create room'}
             </button>
@@ -96,7 +105,7 @@ export default function RoomList() {
         <section style={styles.panel}>
           <h2 style={styles.sectionTitle}>Available Rooms</h2>
           <p style={styles.sectionCopy}>
-            This list is loaded from `GET /api/rooms` and sorted by newest first on the backend.
+            Browse active spaces and jump into the conversation.
           </p>
 
           {loading ? <p style={styles.muted}>Loading rooms...</p> : null}
@@ -111,7 +120,10 @@ export default function RoomList() {
                 onClick={() => navigate('/rooms/' + room.id)}
               >
                 <div style={styles.roomCardHeader}>
-                  <strong>{room.name}</strong>
+                  <div style={styles.roomTitleWrap}>
+                    <strong>{room.name}</strong>
+                    {room.is_protected ? <span style={styles.privateBadge}>Private</span> : null}
+                  </div>
                   <span style={styles.count}>{room.message_count} messages</span>
                 </div>
                 <p style={styles.roomDescription}>
@@ -245,9 +257,24 @@ const styles: Record<string, React.CSSProperties> = {
     gap: '1rem',
     alignItems: 'center'
   },
+  roomTitleWrap: {
+    display: 'flex',
+    gap: '0.6rem',
+    alignItems: 'center',
+    flexWrap: 'wrap'
+  },
   count: {
     color: '#9db3d5',
     fontSize: '0.9rem'
+  },
+  privateBadge: {
+    padding: '0.18rem 0.55rem',
+    borderRadius: '999px',
+    background: 'rgba(83, 192, 167, 0.16)',
+    color: '#8ef0d8',
+    fontSize: '0.75rem',
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em'
   },
   roomDescription: {
     margin: '0.6rem 0',

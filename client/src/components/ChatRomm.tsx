@@ -4,11 +4,16 @@ import api from '../api';
 import Message from './Message';
 import { useAuth } from '../context/AuthContext';
 import socket from '../socket';
-import type { Message as ChatMessage, Reaction } from '../types';
+import type { Message as ChatMessage, Reaction, Room } from '../types';
 
 export default function ChatRomm() {
   const { roomId } = useParams();
   const { user } = useAuth();
+  const [room, setRoom] = useState<Room | null>(null);
+  const [roomPassword, setRoomPassword] = useState('');
+  const [unlockInput, setUnlockInput] = useState('');
+  const [isUnlocked, setIsUnlocked] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [status, setStatus] = useState('Connecting to room...');
@@ -18,31 +23,64 @@ export default function ChatRomm() {
   const typingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const loadMessages = async () => {
+    const loadRoom = async () => {
+      if (!roomId) return;
+
       try {
-        const res = await api.getMessages(Number(roomId));
+        setError('');
+        const res = await api.getRoom(Number(roomId));
+        setRoom(res.data);
+
+        if (!res.data.is_protected) {
+          setIsUnlocked(true);
+          setRoomPassword('');
+          return;
+        }
+
+        const savedPassword = sessionStorage.getItem('room-password-' + roomId) || '';
+        if (!savedPassword) {
+          setIsUnlocked(false);
+          return;
+        }
+
+        await api.unlockRoom(Number(roomId), savedPassword);
+        setRoomPassword(savedPassword);
+        setUnlockInput(savedPassword);
+        setIsUnlocked(true);
+      } catch (err: any) {
+        setError(err.response?.data?.error || 'Failed to load room');
+      }
+    };
+
+    loadRoom();
+  }, [roomId]);
+
+  useEffect(() => {
+    const loadMessages = async () => {
+      if (!roomId || !isUnlocked) return;
+
+      try {
+        const res = await api.getMessages(Number(roomId), roomPassword || undefined);
         setMessages(res.data.map(normalizeMessage));
       } catch (err: any) {
         setError(err.response?.data?.error || 'Failed to load messages');
       }
     };
 
-    if (roomId) {
-      loadMessages();
-    }
-  }, [roomId]);
+    loadMessages();
+  }, [roomId, isUnlocked, roomPassword]);
 
   useEffect(() => {
-    if (!roomId || !socket.connected) return;
+    if (!roomId || !socket.connected || !isUnlocked) return;
 
-    socket.emit('join_room', roomId);
+    socket.emit('join_room', { roomId, password: roomPassword || undefined });
     setStatus('Joined room #' + roomId);
-  }, [roomId]);
+  }, [roomId, isUnlocked, roomPassword]);
 
   useEffect(() => {
     const handleConnect = () => {
-      if (!roomId) return;
-      socket.emit('join_room', roomId);
+      if (!roomId || !isUnlocked) return;
+      socket.emit('join_room', { roomId, password: roomPassword || undefined });
       setStatus('Joined room #' + roomId);
     };
 
@@ -60,10 +98,12 @@ export default function ChatRomm() {
 
     const handleUserJoined = ({ username }: { username: string }) => {
       setStatus(username + ' joined the room');
+      setMessages((current) => [...current, createSystemMessage(username + ' joined the room')]);
     };
 
     const handleUserLeft = ({ username }: { username: string }) => {
       setStatus(username + ' left the room');
+      setMessages((current) => [...current, createSystemMessage(username + ' left the room')]);
     };
 
     const handleUserTyping = ({ username }: { username: string }) => {
@@ -87,8 +127,8 @@ export default function ChatRomm() {
     socket.on('user_stop_typing', handleUserStopTyping);
     socket.on('error', handleSocketError);
 
-    if (socket.connected && roomId) {
-      socket.emit('join_room', roomId);
+    if (socket.connected && roomId && isUnlocked) {
+      socket.emit('join_room', { roomId, password: roomPassword || undefined });
       setStatus('Joined room #' + roomId);
     }
 
@@ -102,7 +142,7 @@ export default function ChatRomm() {
       socket.off('user_stop_typing', handleUserStopTyping);
       socket.off('error', handleSocketError);
     };
-  }, [roomId]);
+  }, [roomId, isUnlocked, roomPassword]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -132,18 +172,74 @@ export default function ChatRomm() {
     }, 1200);
   };
 
-  const handleReaction = (messageId: number, emoji: string) => {
+  const handleReaction = (messageId: number | string, emoji: string) => {
     socket.emit('add_reaction', { messageId, emoji });
   };
+
+  const handleUnlockRoom = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!roomId) return;
+
+    setUnlocking(true);
+    setError('');
+
+    try {
+      await api.unlockRoom(Number(roomId), unlockInput);
+      sessionStorage.setItem('room-password-' + roomId, unlockInput);
+      setRoomPassword(unlockInput);
+      setIsUnlocked(true);
+      setStatus('Unlocked room #' + roomId);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to unlock room');
+    } finally {
+      setUnlocking(false);
+    }
+  };
+
+  if (room?.is_protected && !isUnlocked) {
+    return (
+      <div style={styles.page}>
+        <header style={styles.header}>
+          <div>
+            <p style={styles.eyebrow}>v-chat</p>
+            <h1 style={styles.title}>{room.name}</h1>
+            <p style={styles.subtitle}>This room is protected. Enter the password to continue.</p>
+          </div>
+
+          <Link to="/rooms" style={styles.backLink}>
+            Back to rooms
+          </Link>
+        </header>
+
+        <section style={styles.unlockShell}>
+          <form onSubmit={handleUnlockRoom} style={styles.unlockForm}>
+            <input
+              style={styles.textarea}
+              type="password"
+              placeholder="Room password"
+              value={unlockInput}
+              onChange={(e) => setUnlockInput(e.target.value)}
+              required
+            />
+            <button type="submit" style={styles.sendButton} disabled={unlocking}>
+              {unlocking ? 'Unlocking...' : 'Unlock room'}
+            </button>
+          </form>
+
+          {error ? <p style={styles.error}>{error}</p> : null}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.page}>
       <header style={styles.header}>
         <div>
-          <p style={styles.eyebrow}>Room Session</p>
-          <h1 style={styles.title}>Chat Room #{roomId}</h1>
+          <p style={styles.eyebrow}>v-chat</p>
+          <h1 style={styles.title}>{room?.name || 'Room #' + roomId}</h1>
           <p style={styles.subtitle}>
-            This screen combines REST for message history and Socket.IO for live updates.
+            Live conversation with your team in one shared space.
           </p>
         </div>
 
@@ -161,7 +257,7 @@ export default function ChatRomm() {
         <div style={styles.messages}>
           {messages.length === 0 ? (
             <p style={styles.emptyState}>
-              No messages yet. The first message you send will be persisted in PostgreSQL and broadcast in real time.
+              No messages yet. Start the conversation.
             </p>
           ) : null}
 
@@ -204,7 +300,20 @@ function normalizeMessage(message: ChatMessage): ChatMessage {
   return {
     ...message,
     avatar: message.avatar || null,
-    reactions: message.reactions || []
+    reactions: message.reactions || [],
+    kind: message.kind || 'user'
+  };
+}
+
+function createSystemMessage(content: string): ChatMessage {
+  return {
+    id: 'system-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+    content,
+    username: 'system',
+    avatar: null,
+    created_at: new Date().toISOString(),
+    reactions: [],
+    kind: 'system'
   };
 }
 
@@ -251,6 +360,18 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '24px',
     boxShadow: '0 20px 45px rgba(95, 122, 171, 0.12)',
     overflow: 'hidden'
+  },
+  unlockShell: {
+    background: 'rgba(255,255,255,0.78)',
+    border: '1px solid #dce6f8',
+    borderRadius: '24px',
+    boxShadow: '0 20px 45px rgba(95, 122, 171, 0.12)',
+    padding: '1.5rem'
+  },
+  unlockForm: {
+    display: 'grid',
+    gridTemplateColumns: '1fr auto',
+    gap: '0.75rem'
   },
   metaBar: {
     display: 'flex',

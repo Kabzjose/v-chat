@@ -22,12 +22,20 @@ const api = {
   getRooms: () =>
     axios.get<Room[]>(BASE + '/api/rooms'),
 
-  createRoom: (name: string, description: string) =>
-    axios.post<Room>(BASE + '/api/rooms', { name, description }),
+  getRoom: (roomId: number) =>
+    axios.get<Room>(BASE + '/api/rooms/' + roomId),
+
+  createRoom: (name: string, description: string, password?: string) =>
+    axios.post<Room>(BASE + '/api/rooms', { name, description, password }),
+
+  unlockRoom: (roomId: number, password: string) =>
+    axios.post<{ ok: boolean }>(BASE + '/api/rooms/' + roomId + '/unlock', { password }),
 
   // messages
-  getMessages: (roomId: number) =>
-    axios.get<Message[]>(BASE + '/api/rooms/' + roomId + '/messages'),
+  getMessages: (roomId: number, roomPassword?: string) =>
+    axios.get<Message[]>(BASE + '/api/rooms/' + roomId + '/messages', {
+      headers: roomPassword ? { 'x-room-password': roomPassword } : undefined
+    }),
 };
 
 export default api;

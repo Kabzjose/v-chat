@@ -32,6 +32,7 @@ export default function Login() {
     <div style={styles.container}>
       <div style={styles.card}>
         <h1 style={styles.title}>Welcome Back</h1>
+        <p style={styles.brand}>v-chat</p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <input
@@ -59,7 +60,7 @@ export default function Login() {
           href={'http://localhost:4000/auth/google'}
           style={styles.googleButton}
         >
-          Continue with Google
+          Continue with Google on v-chat
         </a>
 
         {error && <p style={styles.error}>{error}</p>}
@@ -76,6 +77,7 @@ const styles: Record<string, React.CSSProperties> = {
   container: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0f0f' },
   card: { background: '#1a1a1a', padding: '2.5rem', borderRadius: '12px', width: '100%', maxWidth: '420px' },
   title: { marginBottom: '1.5rem', fontSize: '1.8rem', color: '#f0f0f0' },
+  brand: { marginTop: '-0.75rem', marginBottom: '1.5rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.12em', fontSize: '0.85rem' },
   form: { display: 'flex', flexDirection: 'column', gap: '1rem' },
   input: { padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #333', background: '#0f0f0f', color: '#f0f0f0', fontSize: '1rem' },
   button: { padding: '0.75rem', borderRadius: '8px', background: '#4f46e5', color: '#fff', border: 'none', fontSize: '1rem', cursor: 'pointer' },

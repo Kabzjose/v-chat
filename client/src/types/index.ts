@@ -14,6 +14,7 @@ export interface Room {
   creator: string;
   message_count: number;
   created_at: string;
+  is_protected?: boolean;
 }
 
 // what a reaction looks like
@@ -24,12 +25,13 @@ export interface Reaction {
 
 // what a message looks like
 export interface Message {
-  id: number;
+  id: number | string;
   content: string;
   username: string;
   avatar: string | null;
   created_at: string;
   reactions: Reaction[] | null;
+  kind?: 'user' | 'system';
 }
 
 // what comes back from login/register

@@ -1,5 +1,19 @@
 import pool from '../db.js';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+
+let schemaReadyPromise;
+
+const ensureRoomSecuritySchema = async () => {
+  if (!schemaReadyPromise) {
+    schemaReadyPromise = pool.query(`
+      ALTER TABLE rooms
+      ADD COLUMN IF NOT EXISTS password_hash TEXT
+    `);
+  }
+
+  await schemaReadyPromise;
+};
 
 export const registerSocketHandlers = (io) => {
 
@@ -27,7 +41,36 @@ export const registerSocketHandlers = (io) => {
 
     // ─── JOIN ROOM ────────────────────────────────────────
     // client emits 'join_room' → server puts them in that room
-    socket.on('join_room', async (roomId) => {
+    socket.on('join_room', async (payload) => {
+      const roomId = typeof payload === 'object' ? payload?.roomId : payload;
+      const password = typeof payload === 'object' ? payload?.password : undefined;
+      if (!roomId) return;
+
+      await ensureRoomSecuritySchema();
+
+      const roomResult = await pool.query(
+        `SELECT password_hash FROM rooms WHERE id = $1`,
+        [roomId]
+      );
+
+      if (roomResult.rows.length === 0) {
+        socket.emit('error', { message: 'Room not found' });
+        return;
+      }
+
+      const passwordHash = roomResult.rows[0].password_hash;
+      if (passwordHash) {
+        if (!password) {
+          socket.emit('error', { message: 'Room password required' });
+          return;
+        }
+
+        const matches = await bcrypt.compare(password, passwordHash);
+        if (!matches) {
+          socket.emit('error', { message: 'Incorrect room password' });
+          return;
+        }
+      }
 
       // leave any previous room first
       // socket.rooms contains all rooms this socket is in

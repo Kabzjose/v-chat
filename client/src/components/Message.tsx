@@ -3,12 +3,16 @@ import type { Message as ChatMessage } from '../types';
 interface MessageProps {
   message: ChatMessage;
   currentUsername?: string;
-  onReact: (messageId: number, emoji: string) => void;
+  onReact: (messageId: number | string, emoji: string) => void;
 }
 
 const EMOJIS = ['👍', '❤️', '😂', '🔥'];
 
 export default function Message({ message, currentUsername, onReact }: MessageProps) {
+  if (message.kind === 'system') {
+    return <p style={styles.systemMessage}>{message.content}</p>;
+  }
+
   const isOwnMessage = currentUsername === message.username;
   const reactions = message.reactions || [];
 
@@ -101,5 +105,14 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: '999px',
     padding: '0.35rem 0.55rem',
     cursor: 'pointer'
+  },
+  systemMessage: {
+    margin: 0,
+    alignSelf: 'center',
+    padding: '0.45rem 0.8rem',
+    borderRadius: '999px',
+    background: '#e8eef8',
+    color: '#53657f',
+    fontSize: '0.9rem'
   }
 };
