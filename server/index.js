@@ -6,13 +6,14 @@ import passport from 'passport';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import authRouter from './routes/auth.js';
+import roomsRouter from './routes/rooms.js';
+import { registerSocketHandlers } from './socket/handlers.js';
 
 dotenv.config();
 
 const app = express();
-const httpServer = createServer(app); // wrap express in http server for socket.io
+const httpServer = createServer(app);
 
-// socket.io needs the http server, not just express
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.CLIENT_URL,
@@ -32,11 +33,14 @@ app.use(passport.session());
 
 // routes
 app.use('/auth', authRouter);
+app.use('/api/rooms', roomsRouter);
 
-// test route
+// register all socket events
+registerSocketHandlers(io);
+
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => console.log('Server running on port ' + PORT));
 
-export { io }; // we'll use this in socket handlers later
+export { io };
