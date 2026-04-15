@@ -2,10 +2,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './components/Login';
 import Register from './components/Register';
-
-// placeholder components — we'll build these next
-const Rooms = () => <div style={{color:'#fff', padding:'2rem'}}>Rooms coming soon...</div>;
-const Chat = () => <div style={{color:'#fff', padding:'2rem'}}>Chat coming soon...</div>;
+import RoomList from './components/RoomList';
+import ChatRomm from './components/ChatRomm';
 
 // protected route — redirects to login if not authenticated
 const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
@@ -35,10 +33,10 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/rooms" element={
-        <ProtectedRoute><Rooms /></ProtectedRoute>
+        <ProtectedRoute><RoomList /></ProtectedRoute>
       } />
       <Route path="/rooms/:roomId" element={
-        <ProtectedRoute><Chat /></ProtectedRoute>
+        <ProtectedRoute><ChatRomm /></ProtectedRoute>
       } />
       <Route path="/" element={<Navigate to="/rooms" />} />
     </Routes>
