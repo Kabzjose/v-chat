@@ -57,7 +57,7 @@ export default function Login() {
         </form>
 
         <a
-          href={'http://localhost:4000/auth/google'}
+          href={(import.meta.env.VITE_API_URL || 'http://localhost:4000') + '/auth/google'}
           style={styles.googleButton}
         >
           Continue with Google on v-chat
