@@ -23,6 +23,11 @@ export interface Reaction {
   user_id: number;
 }
 
+export interface OnlineUser {
+  userId: string;
+  username: string;
+}
+
 // what a message looks like
 export interface Message {
   id: number | string;

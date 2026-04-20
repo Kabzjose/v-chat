@@ -4,12 +4,7 @@ import api from '../api';
 import Message from './Message';
 import { useAuth } from '../context/AuthContext';
 import socket from '../socket';
-import type { Message as ChatMessage, Reaction, Room } from '../types';
-
-type OnlineUser = {
-  userId: string;
-  username: string;
-};
+import type { Message as ChatMessage, OnlineUser, Reaction, Room } from '../types';
 
 export default function ChatRomm() {
   const { roomId } = useParams();
@@ -60,45 +55,6 @@ export default function ChatRomm() {
 
     loadRoom();
   }, [roomId]);
-useEffect(() => {
-  // request online users only when socket is ready
-  const requestOnlineUsers = () => {
-    socket.emit('get_online_users');
-  };
-
-  // if already connected, request immediately
-  if (socket.connected) {
-    requestOnlineUsers();
-  }
-
-  // also request when socket connects (in case it wasn't connected yet)
-  socket.on('connect', requestOnlineUsers);
-
-  socket.on('online_users', (users: OnlineUser[]) => {
-    console.log('online users received:', users); // debug
-    setOnlineUsers(users);
-  });
-
-  socket.on('user_online', (newUser: OnlineUser) => {
-    setOnlineUsers(prev => {
-      // avoid duplicate entries
-      const exists = prev.find(u => u.userId === newUser.userId);
-      if (exists) return prev;
-      return [...prev, newUser];
-    });
-  });
-
-  socket.on('user_offline', ({ userId }: { userId: string }) => {
-    setOnlineUsers(prev => prev.filter(u => u.userId !== userId));
-  });
-
-  return () => {
-    socket.off('connect', requestOnlineUsers);
-    socket.off('online_users');
-    socket.off('user_online');
-    socket.off('user_offline');
-  };
-}, []);
 
   useEffect(() => {
     const loadMessages = async () => {
@@ -163,6 +119,10 @@ useEffect(() => {
       setError(payload.message || 'Socket error');
     };
 
+    const handleRoomOnlineUsers = (users: OnlineUser[]) => {
+      setOnlineUsers(users);
+    };
+
     socket.on('connect', handleConnect);
     socket.on('new_message', handleNewMessage);
     socket.on('reaction_updated', handleReactionUpdate);
@@ -170,6 +130,7 @@ useEffect(() => {
     socket.on('user_left', handleUserLeft);
     socket.on('user_typing', handleUserTyping);
     socket.on('user_stop_typing', handleUserStopTyping);
+    socket.on('room_online_users', handleRoomOnlineUsers);
     socket.on('error', handleSocketError);
 
     if (socket.connected && roomId && isUnlocked) {
@@ -185,9 +146,16 @@ useEffect(() => {
       socket.off('user_left', handleUserLeft);
       socket.off('user_typing', handleUserTyping);
       socket.off('user_stop_typing', handleUserStopTyping);
+      socket.off('room_online_users', handleRoomOnlineUsers);
       socket.off('error', handleSocketError);
     };
   }, [roomId, isUnlocked, roomPassword]);
+
+  useEffect(() => {
+    if (!roomId || !isUnlocked) {
+      setOnlineUsers([]);
+    }
+  }, [roomId, isUnlocked]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

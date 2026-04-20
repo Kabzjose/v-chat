@@ -3,6 +3,28 @@ import jwt from 'jsonwebtoken';
 import redis from '../redis.js';
 
 export const registerSocketHandlers = (io) => {
+  const getUniqueUsersInRoom = async (roomId) => {
+    const sockets = await io.in(roomId).fetchSockets();
+    const users = new Map();
+
+    for (const roomSocket of sockets) {
+      const roomUser = roomSocket.user;
+      if (!roomUser) continue;
+
+      users.set(String(roomUser.id), {
+        userId: String(roomUser.id),
+        username: roomUser.username
+      });
+    }
+
+    return [...users.values()];
+  };
+
+  const emitRoomPresence = async (roomId) => {
+    if (!roomId) return;
+    const onlineUsers = await getUniqueUsersInRoom(roomId);
+    io.to(roomId).emit('room_online_users', onlineUsers);
+  };
 
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
@@ -38,17 +60,30 @@ export const registerSocketHandlers = (io) => {
     }, 30000);
 
     // ─── JOIN ROOM ─────────────────────────────────────
-    socket.on('join_room', async (roomId) => {
+    socket.on('join_room', async (payload) => {
+      const nextRoomId = String(
+        typeof payload === 'object' && payload !== null ? payload.roomId : payload
+      );
+      const previousRoomId = socket.currentRoom ? String(socket.currentRoom) : null;
+
+      if (!nextRoomId || nextRoomId === 'undefined') return;
+
+      if (previousRoomId && previousRoomId !== nextRoomId) {
+        socket.leave(previousRoomId);
+        socket.to(previousRoomId).emit('user_left', { username: socket.user.username });
+        await emitRoomPresence(previousRoomId);
+      }
+
       socket.rooms.forEach(room => {
-        if (room !== socket.id) socket.leave(room);
+        if (room !== socket.id && room !== previousRoomId) socket.leave(room);
       });
 
-      socket.join(roomId);
-      socket.currentRoom = roomId;
+      socket.join(nextRoomId);
+      socket.currentRoom = nextRoomId;
 
       // ─── CACHE: load messages from Redis first ──────
       // check if messages are cached
-      const cached = await redis.get('messages:' + roomId);
+      const cached = await redis.get('messages:' + nextRoomId);
 
       if (cached) {
         // send cached messages instantly
@@ -68,17 +103,18 @@ export const registerSocketHandlers = (io) => {
           GROUP BY messages.id, users.username, users.avatar
           ORDER BY messages.created_at ASC
           LIMIT 50
-        `, [roomId]);
+        `, [nextRoomId]);
 
         const messages = result.rows;
 
         // store in Redis for 5 minutes
-        await redis.setex('messages:' + roomId, 300, JSON.stringify(messages));
+        await redis.setex('messages:' + nextRoomId, 300, JSON.stringify(messages));
 
         socket.emit('room_messages', messages);
       }
 
-      socket.to(roomId).emit('user_joined', { username: socket.user.username });
+      socket.to(nextRoomId).emit('user_joined', { username: socket.user.username });
+      await emitRoomPresence(nextRoomId);
     });
 
     // ─── SEND MESSAGE ───────────────────────────────────
@@ -114,18 +150,13 @@ export const registerSocketHandlers = (io) => {
 
     // ─── GET ONLINE USERS ───────────────────────────────
     socket.on('get_online_users', async () => {
-      // scan Redis for all online:* keys
-      const keys = await redis.keys('online:*');
+      const roomId = socket.currentRoom ? String(socket.currentRoom) : null;
+      if (!roomId) {
+        socket.emit('room_online_users', []);
+        return;
+      }
 
-      const onlineUsers = await Promise.all(
-        keys.map(async (key) => {
-          const username = await redis.get(key);
-          const userId = key.replace('online:', '');
-          return { userId, username };
-        })
-      );
-
-      socket.emit('online_users', onlineUsers);
+      await emitRoomPresence(roomId);
     });
 
     // ─── DISCONNECT ─────────────────────────────────────
@@ -133,6 +164,11 @@ export const registerSocketHandlers = (io) => {
       clearInterval(heartbeat); // stop the heartbeat
       await redis.del('online:' + socket.user.id); // mark offline
       io.emit('user_offline', { userId: socket.user.id });
+      const roomId = socket.currentRoom ? String(socket.currentRoom) : null;
+      if (roomId) {
+        socket.to(roomId).emit('user_left', { username: socket.user.username });
+        await emitRoomPresence(roomId);
+      }
       console.log(socket.user.username + ' disconnected');
     });
   });
