@@ -6,6 +6,11 @@ import { useAuth } from '../context/AuthContext';
 import socket from '../socket';
 import type { Message as ChatMessage, Reaction, Room } from '../types';
 
+type OnlineUser = {
+  userId: string;
+  username: string;
+};
+
 export default function ChatRomm() {
   const { roomId } = useParams();
   const { user } = useAuth();
@@ -18,6 +23,7 @@ export default function ChatRomm() {
   const [input, setInput] = useState('');
   const [status, setStatus] = useState('Connecting to room...');
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
@@ -54,6 +60,28 @@ export default function ChatRomm() {
 
     loadRoom();
   }, [roomId]);
+// listen for online/offline events
+useEffect(() => {
+  socket.emit('get_online_users');
+
+  socket.on('online_users', (users: OnlineUser[]) => {
+    setOnlineUsers(users);
+  });
+
+  socket.on('user_online', (user: OnlineUser) => {
+    setOnlineUsers(prev => [...prev, user]);
+  });
+
+  socket.on('user_offline', ({ userId }: { userId: string }) => {
+    setOnlineUsers(prev => prev.filter(u => u.userId !== userId));
+  });
+
+  return () => {
+    socket.off('online_users');
+    socket.off('user_online');
+    socket.off('user_offline');
+  };
+}, []);
 
   useEffect(() => {
     const loadMessages = async () => {
@@ -261,6 +289,7 @@ export default function ChatRomm() {
       <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 shadow-xl shadow-slate-300/30 backdrop-blur">
         <div className="flex flex-col gap-2 bg-slate-900 px-5 py-4 text-[0.95rem] text-slate-100 md:flex-row md:items-center md:justify-between">
           <span>{status}</span>
+          <span>{onlineUsers.length} online</span>
           <span>Signed in as {user?.username}</span>
         </div>
 

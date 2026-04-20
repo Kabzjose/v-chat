@@ -1,96 +1,87 @@
 import pool from '../db.js';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-
-let schemaReadyPromise;
-
-const ensureRoomSecuritySchema = async () => {
-  if (!schemaReadyPromise) {
-    schemaReadyPromise = pool.query(`
-      ALTER TABLE rooms
-      ADD COLUMN IF NOT EXISTS password_hash TEXT
-    `);
-  }
-
-  await schemaReadyPromise;
-};
+import redis from '../redis.js';
 
 export const registerSocketHandlers = (io) => {
 
-  // ─── MIDDLEWARE ─────────────────────────────────────────
-  // this runs when a client first connects
-  // it checks their JWT token before allowing the connection
   io.use((socket, next) => {
     const token = socket.handshake.auth.token;
-
     if (!token) return next(new Error('No token'));
-
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      socket.user = decoded; // attach user to socket — like req.user in Express
+      socket.user = decoded;
       next();
     } catch {
       next(new Error('Invalid token'));
     }
   });
 
-  // ─── ON CONNECTION ──────────────────────────────────────
-  // this runs every time a new user connects
-  io.on('connection', (socket) => {
+  io.on('connection', async (socket) => {
     console.log(socket.user.username + ' connected');
 
-    // ─── JOIN ROOM ────────────────────────────────────────
-    // client emits 'join_room' → server puts them in that room
-    socket.on('join_room', async (payload) => {
-      const roomId = typeof payload === 'object' ? payload?.roomId : payload;
-      const password = typeof payload === 'object' ? payload?.password : undefined;
-      if (!roomId) return;
+    // ─── MARK USER ONLINE ──────────────────────────────
+    // store in Redis with 60 second expiry
+    await redis.setex(
+      'online:' + socket.user.id,  // key
+      60,                           // expires in 60 seconds
+      socket.user.username          // value
+    );
 
-      await ensureRoomSecuritySchema();
+    // tell everyone this user is online
+    io.emit('user_online', { userId: socket.user.id, username: socket.user.username });
 
-      const roomResult = await pool.query(
-        `SELECT password_hash FROM rooms WHERE id = $1`,
-        [roomId]
-      );
+    // ─── HEARTBEAT ─────────────────────────────────────
+    // every 30 seconds refresh the online status
+    // if server stops getting heartbeats → key expires → user appears offline
+    const heartbeat = setInterval(async () => {
+      await redis.setex('online:' + socket.user.id, 60, socket.user.username);
+    }, 30000);
 
-      if (roomResult.rows.length === 0) {
-        socket.emit('error', { message: 'Room not found' });
-        return;
-      }
-
-      const passwordHash = roomResult.rows[0].password_hash;
-      if (passwordHash) {
-        if (!password) {
-          socket.emit('error', { message: 'Room password required' });
-          return;
-        }
-
-        const matches = await bcrypt.compare(password, passwordHash);
-        if (!matches) {
-          socket.emit('error', { message: 'Incorrect room password' });
-          return;
-        }
-      }
-
-      // leave any previous room first
-      // socket.rooms contains all rooms this socket is in
+    // ─── JOIN ROOM ─────────────────────────────────────
+    socket.on('join_room', async (roomId) => {
       socket.rooms.forEach(room => {
         if (room !== socket.id) socket.leave(room);
       });
 
-      socket.join(roomId); // put socket in this room
-      socket.currentRoom = roomId; // remember which room they're in
+      socket.join(roomId);
+      socket.currentRoom = roomId;
 
-      console.log(socket.user.username + ' joined room ' + roomId);
+      // ─── CACHE: load messages from Redis first ──────
+      // check if messages are cached
+      const cached = await redis.get('messages:' + roomId);
 
-      // tell everyone else in the room this user joined
-      socket.to(roomId).emit('user_joined', {
-        username: socket.user.username
-      });
+      if (cached) {
+        // send cached messages instantly
+        socket.emit('room_messages', JSON.parse(cached));
+      } else {
+        // not cached → fetch from PostgreSQL
+        const result = await pool.query(`
+          SELECT messages.id, messages.content, messages.created_at,
+            users.username, users.avatar,
+            json_agg(
+              json_build_object('emoji', reactions.emoji, 'user_id', reactions.user_id)
+            ) FILTER (WHERE reactions.id IS NOT NULL) as reactions
+          FROM messages
+          JOIN users ON messages.user_id = users.id
+          LEFT JOIN reactions ON reactions.message_id = messages.id
+          WHERE messages.room_id = $1
+          GROUP BY messages.id, users.username, users.avatar
+          ORDER BY messages.created_at ASC
+          LIMIT 50
+        `, [roomId]);
+
+        const messages = result.rows;
+
+        // store in Redis for 5 minutes
+        await redis.setex('messages:' + roomId, 300, JSON.stringify(messages));
+
+        socket.emit('room_messages', messages);
+      }
+
+      socket.to(roomId).emit('user_joined', { username: socket.user.username });
     });
 
-    // ─── SEND MESSAGE ─────────────────────────────────────
-    // client emits 'send_message' → server saves to DB → broadcasts to room
+    // ─── SEND MESSAGE ───────────────────────────────────
     socket.on('send_message', async (data) => {
       const { content } = data;
       const roomId = socket.currentRoom;
@@ -98,11 +89,9 @@ export const registerSocketHandlers = (io) => {
       if (!content || !roomId) return;
 
       try {
-        // save message to DB
         const result = await pool.query(
           `INSERT INTO messages (room_id, user_id, content)
-           VALUES ($1, $2, $3)
-           RETURNING id, content, created_at`,
+           VALUES ($1, $2, $3) RETURNING id, content, created_at`,
           [roomId, socket.user.id, content]
         );
 
@@ -113,83 +102,38 @@ export const registerSocketHandlers = (io) => {
           reactions: []
         };
 
-        // emit to EVERYONE in the room including the sender
-        // this is how all clients get the message at the same time
+        // invalidate cache — next user to join will get fresh messages from DB
+        await redis.del('messages:' + roomId);
+
         io.to(roomId).emit('new_message', message);
 
       } catch (err) {
-        // only send error back to the person who sent the message
         socket.emit('error', { message: 'Failed to send message' });
       }
     });
 
-    // ─── EMOJI REACTION ───────────────────────────────────
-    // client emits 'add_reaction' → save to DB → broadcast updated reactions
-    socket.on('add_reaction', async (data) => {
-      const { messageId, emoji } = data;
+    // ─── GET ONLINE USERS ───────────────────────────────
+    socket.on('get_online_users', async () => {
+      // scan Redis for all online:* keys
+      const keys = await redis.keys('online:*');
 
-      try {
-        // INSERT or DELETE — if reaction exists remove it (toggle behaviour)
-        const existing = await pool.query(
-          `SELECT id FROM reactions 
-           WHERE message_id = $1 AND user_id = $2 AND emoji = $3`,
-          [messageId, socket.user.id, emoji]
-        );
+      const onlineUsers = await Promise.all(
+        keys.map(async (key) => {
+          const username = await redis.get(key);
+          const userId = key.replace('online:', '');
+          return { userId, username };
+        })
+      );
 
-        if (existing.rows.length > 0) {
-          // reaction exists → remove it
-          await pool.query(
-            `DELETE FROM reactions WHERE id = $1`,
-            [existing.rows[0].id]
-          );
-        } else {
-          // reaction doesn't exist → add it
-          await pool.query(
-            `INSERT INTO reactions (message_id, user_id, emoji)
-             VALUES ($1, $2, $3)`,
-            [messageId, socket.user.id, emoji]
-          );
-        }
-
-        // fetch all updated reactions for this message
-        const reactions = await pool.query(
-          `SELECT emoji, user_id FROM reactions WHERE message_id = $1`,
-          [messageId]
-        );
-
-        // broadcast updated reactions to everyone in the room
-        io.to(socket.currentRoom).emit('reaction_updated', {
-          messageId,
-          reactions: reactions.rows
-        });
-
-      } catch (err) {
-        socket.emit('error', { message: 'Failed to add reaction' });
-      }
+      socket.emit('online_users', onlineUsers);
     });
 
-    // ─── TYPING INDICATOR ─────────────────────────────────
-    // client emits 'typing' → server tells everyone else in the room
-    socket.on('typing', () => {
-      socket.to(socket.currentRoom).emit('user_typing', {
-        username: socket.user.username
-      });
-    });
-
-    socket.on('stop_typing', () => {
-      socket.to(socket.currentRoom).emit('user_stop_typing', {
-        username: socket.user.username
-      });
-    });
-
-    // ─── DISCONNECT ───────────────────────────────────────
-    socket.on('disconnect', () => {
+    // ─── DISCONNECT ─────────────────────────────────────
+    socket.on('disconnect', async () => {
+      clearInterval(heartbeat); // stop the heartbeat
+      await redis.del('online:' + socket.user.id); // mark offline
+      io.emit('user_offline', { userId: socket.user.id });
       console.log(socket.user.username + ' disconnected');
-      if (socket.currentRoom) {
-        socket.to(socket.currentRoom).emit('user_left', {
-          username: socket.user.username
-        });
-      }
     });
   });
 };
