@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../api';
 import Message from './Message';
@@ -158,18 +158,42 @@ export default function ChatRomm() {
   }, [roomId, isUnlocked]);
 
   useEffect(() => {
+    return () => {
+      socket.emit('stop_typing');
+
+      if (typingTimeoutRef.current) {
+        window.clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-
+  const sendMessage = () => {
     const content = input.trim();
     if (!content) return;
 
     socket.emit('send_message', { content });
     socket.emit('stop_typing');
+    if (typingTimeoutRef.current) {
+      window.clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
     setInput('');
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    sendMessage();
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+
+    e.preventDefault();
+    sendMessage();
   };
 
   const handleInputChange = (value: string) => {
@@ -306,6 +330,7 @@ export default function ChatRomm() {
             className="resize-y rounded-2xl border border-slate-300 bg-white px-4 py-4 text-slate-900 outline-none transition focus:border-slate-500"
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="Write a message..."
             rows={3}
           />

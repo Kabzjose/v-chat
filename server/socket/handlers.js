@@ -70,6 +70,7 @@ export const registerSocketHandlers = (io) => {
       if (!nextRoomId || nextRoomId === 'undefined') return;
 
       if (previousRoomId && previousRoomId !== nextRoomId) {
+        socket.to(previousRoomId).emit('user_stop_typing', { username: socket.user.username });
         socket.leave(previousRoomId);
         socket.to(previousRoomId).emit('user_left', { username: socket.user.username });
         await emitRoomPresence(previousRoomId);
@@ -116,6 +117,21 @@ export const registerSocketHandlers = (io) => {
 
       socket.to(nextRoomId).emit('user_joined', { username: socket.user.username });
       await emitRoomPresence(nextRoomId);
+    });
+
+    // ─── TYPING ────────────────────────────────────────
+    socket.on('typing', () => {
+      const roomId = socket.currentRoom ? String(socket.currentRoom) : null;
+      if (!roomId) return;
+
+      socket.to(roomId).emit('user_typing', { username: socket.user.username });
+    });
+
+    socket.on('stop_typing', () => {
+      const roomId = socket.currentRoom ? String(socket.currentRoom) : null;
+      if (!roomId) return;
+
+      socket.to(roomId).emit('user_stop_typing', { username: socket.user.username });
     });
 
     // ─── SEND MESSAGE ───────────────────────────────────
@@ -167,6 +183,7 @@ export const registerSocketHandlers = (io) => {
       io.emit('user_offline', { userId: socket.user.id });
       const roomId = socket.currentRoom ? String(socket.currentRoom) : null;
       if (roomId) {
+        socket.to(roomId).emit('user_stop_typing', { username: socket.user.username });
         socket.to(roomId).emit('user_left', { username: socket.user.username });
         await emitRoomPresence(roomId);
       }
