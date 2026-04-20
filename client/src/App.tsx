@@ -11,10 +11,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactElement }) => {
 
   if (!isReady) {
     return (
-      <div style={styles.loadingScreen}>
-        <div style={styles.loadingCard}>
-          <p style={styles.loadingEyebrow}>v-chat</p>
-          <p style={styles.loadingText}>Restoring your session...</p>
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 px-6">
+        <div className="rounded-[20px] border border-slate-700/40 bg-slate-950/70 px-7 py-6 text-center text-slate-50 backdrop-blur">
+          <p className="m-0 text-[0.85rem] uppercase tracking-[0.12em] text-slate-300">v-chat</p>
+          <p className="mt-2 text-white">Restoring your session...</p>
         </div>
       </div>
     );
@@ -64,33 +64,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  loadingScreen: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'linear-gradient(135deg, #081120 0%, #111b33 45%, #1b2f52 100%)',
-    padding: '1.5rem'
-  },
-  loadingCard: {
-    borderRadius: '20px',
-    padding: '1.5rem 1.75rem',
-    background: 'rgba(7, 14, 27, 0.74)',
-    border: '1px solid rgba(157, 179, 213, 0.18)',
-    color: '#f5f7fb',
-    textAlign: 'center'
-  },
-  loadingEyebrow: {
-    margin: 0,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    color: '#9db3d5',
-    fontSize: '0.85rem'
-  },
-  loadingText: {
-    margin: '0.6rem 0 0',
-    color: '#fff'
-  }
-};

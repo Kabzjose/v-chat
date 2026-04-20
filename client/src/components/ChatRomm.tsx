@@ -198,65 +198,75 @@ export default function ChatRomm() {
 
   if (room?.is_protected && !isUnlocked) {
     return (
-      <div style={styles.page}>
-        <header style={styles.header}>
+      <div className="min-h-screen bg-gradient-to-b from-sky-50 to-blue-100 px-5 py-8 text-slate-900 md:px-8">
+        <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <p style={styles.eyebrow}>v-chat</p>
-            <h1 style={styles.title}>{room.name}</h1>
-            <p style={styles.subtitle}>This room is protected. Enter the password to continue.</p>
+            <p className="m-0 text-[0.85rem] uppercase tracking-[0.12em] text-slate-500">v-chat</p>
+            <h1 className="my-2 text-3xl font-semibold text-slate-900">{room.name}</h1>
+            <p className="m-0 text-slate-600">This room is protected. Enter the password to continue.</p>
           </div>
 
-          <Link to="/rooms" style={styles.backLink}>
+          <Link
+            to="/rooms"
+            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
+          >
             Back to rooms
           </Link>
         </header>
 
-        <section style={styles.unlockShell}>
-          <form onSubmit={handleUnlockRoom} style={styles.unlockForm}>
+        <section className="rounded-[24px] border border-slate-200 bg-white/80 p-6 shadow-xl shadow-slate-300/30 backdrop-blur">
+          <form onSubmit={handleUnlockRoom} className="grid gap-3 md:grid-cols-[1fr_auto]">
             <input
-              style={styles.textarea}
+              className="rounded-2xl border border-slate-300 bg-white px-4 py-4 text-slate-900 outline-none transition focus:border-slate-500"
               type="password"
               placeholder="Room password"
               value={unlockInput}
               onChange={(e) => setUnlockInput(e.target.value)}
               required
             />
-            <button type="submit" style={styles.sendButton} disabled={unlocking}>
+            <button
+              type="submit"
+              className="rounded-2xl bg-slate-900 px-5 py-4 font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={unlocking}
+            >
               {unlocking ? 'Unlocking...' : 'Unlock room'}
             </button>
           </form>
 
-          {error ? <p style={styles.error}>{error}</p> : null}
+          {error ? <p className="mb-0 mt-5 text-rose-600">{error}</p> : null}
         </section>
       </div>
     );
   }
 
   return (
-    <div style={styles.page}>
-      <header style={styles.header}>
+    <div className="min-h-screen bg-gradient-to-b from-sky-50 to-blue-100 px-5 py-8 text-slate-900 md:px-8">
+      <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <p style={styles.eyebrow}>v-chat</p>
-          <h1 style={styles.title}>{room?.name || 'Room #' + roomId}</h1>
-          <p style={styles.subtitle}>
+          <p className="m-0 text-[0.85rem] uppercase tracking-[0.12em] text-slate-500">v-chat</p>
+          <h1 className="my-2 text-3xl font-semibold text-slate-900">{room?.name || 'Room #' + roomId}</h1>
+          <p className="m-0 text-slate-600">
             Live conversation with your team in one shared space.
           </p>
         </div>
 
-        <Link to="/rooms" style={styles.backLink}>
+        <Link
+          to="/rooms"
+          className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
+        >
           Back to rooms
         </Link>
       </header>
 
-      <section style={styles.chatShell}>
-        <div style={styles.metaBar}>
+      <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 shadow-xl shadow-slate-300/30 backdrop-blur">
+        <div className="flex flex-col gap-2 bg-slate-900 px-5 py-4 text-[0.95rem] text-slate-100 md:flex-row md:items-center md:justify-between">
           <span>{status}</span>
           <span>Signed in as {user?.username}</span>
         </div>
 
-        <div style={styles.messages}>
+        <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto p-5">
           {messages.length === 0 ? (
-            <p style={styles.emptyState}>
+            <p className="m-0 text-slate-600">
               No messages yet. Start the conversation.
             </p>
           ) : null}
@@ -271,26 +281,29 @@ export default function ChatRomm() {
           ))}
 
           {typingUsers.length > 0 ? (
-            <p style={styles.typingIndicator}>{typingUsers.join(', ')} typing...</p>
+            <p className="m-0 italic text-slate-500">{typingUsers.join(', ')} typing...</p>
           ) : null}
 
           <div ref={messagesEndRef} />
         </div>
 
-        <form onSubmit={handleSubmit} style={styles.composer}>
+        <form onSubmit={handleSubmit} className="grid gap-3 border-t border-slate-200 p-5 md:grid-cols-[1fr_auto]">
           <textarea
-            style={styles.textarea}
+            className="resize-y rounded-2xl border border-slate-300 bg-white px-4 py-4 text-slate-900 outline-none transition focus:border-slate-500"
             value={input}
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder="Write a message..."
             rows={3}
           />
-          <button type="submit" style={styles.sendButton}>
+          <button
+            type="submit"
+            className="rounded-2xl bg-slate-900 px-5 py-4 font-bold text-white transition hover:bg-slate-800"
+          >
             Send
           </button>
         </form>
 
-        {error ? <p style={styles.error}>{error}</p> : null}
+        {error ? <p className="mx-5 mb-5 mt-0 text-rose-600">{error}</p> : null}
       </section>
     </div>
   );
@@ -316,117 +329,3 @@ function createSystemMessage(content: string): ChatMessage {
     kind: 'system'
   };
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: '100vh',
-    padding: '2rem',
-    background: 'linear-gradient(180deg, #f7fbff 0%, #eaf2ff 100%)',
-    color: '#10203a'
-  },
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '1rem',
-    alignItems: 'flex-start',
-    marginBottom: '1.5rem'
-  },
-  eyebrow: {
-    margin: 0,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    color: '#4f6b95',
-    fontSize: '0.85rem'
-  },
-  title: {
-    margin: '0.45rem 0',
-    color: '#10203a'
-  },
-  subtitle: {
-    margin: 0,
-    color: '#53657f'
-  },
-  backLink: {
-    textDecoration: 'none',
-    color: '#10203a',
-    border: '1px solid #bfd0ec',
-    padding: '0.8rem 1rem',
-    borderRadius: '12px',
-    background: '#fff'
-  },
-  chatShell: {
-    background: 'rgba(255,255,255,0.78)',
-    border: '1px solid #dce6f8',
-    borderRadius: '24px',
-    boxShadow: '0 20px 45px rgba(95, 122, 171, 0.12)',
-    overflow: 'hidden'
-  },
-  unlockShell: {
-    background: 'rgba(255,255,255,0.78)',
-    border: '1px solid #dce6f8',
-    borderRadius: '24px',
-    boxShadow: '0 20px 45px rgba(95, 122, 171, 0.12)',
-    padding: '1.5rem'
-  },
-  unlockForm: {
-    display: 'grid',
-    gridTemplateColumns: '1fr auto',
-    gap: '0.75rem'
-  },
-  metaBar: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '1rem',
-    padding: '1rem 1.25rem',
-    background: '#10203a',
-    color: '#eaf2ff',
-    fontSize: '0.95rem'
-  },
-  messages: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.85rem',
-    maxHeight: '60vh',
-    overflowY: 'auto',
-    padding: '1.25rem'
-  },
-  emptyState: {
-    margin: 0,
-    color: '#53657f'
-  },
-  typingIndicator: {
-    margin: 0,
-    color: '#4f6b95',
-    fontStyle: 'italic'
-  },
-  composer: {
-    display: 'grid',
-    gridTemplateColumns: '1fr auto',
-    gap: '0.75rem',
-    padding: '1.25rem',
-    borderTop: '1px solid #dce6f8'
-  },
-  textarea: {
-    borderRadius: '16px',
-    border: '1px solid #bfd0ec',
-    background: '#fff',
-    color: '#10203a',
-    padding: '0.9rem 1rem',
-    resize: 'vertical',
-    fontSize: '1rem'
-  },
-  sendButton: {
-    alignSelf: 'end',
-    border: 'none',
-    borderRadius: '14px',
-    background: '#10203a',
-    color: '#fff',
-    padding: '0.9rem 1.2rem',
-    fontWeight: 700,
-    cursor: 'pointer'
-  },
-  error: {
-    margin: '0 1.25rem 1.25rem',
-    color: '#d14343'
-  }
-};

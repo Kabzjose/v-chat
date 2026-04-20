@@ -30,21 +30,21 @@ export default function Register() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <h1 style={styles.title}>Create Account</h1>
-        <p style={styles.brand}>v-chat</p>
+    <div className="flex min-h-screen items-center justify-center bg-neutral-950 px-6 py-10">
+      <div className="w-full max-w-[420px] rounded-xl bg-neutral-900 p-10 shadow-2xl shadow-black/30">
+        <h1 className="mb-6 text-[1.8rem] font-semibold text-neutral-100">Create Account</h1>
+        <p className="-mt-3 mb-6 text-[0.85rem] uppercase tracking-[0.12em] text-neutral-400">v-chat</p>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <input
-            style={styles.input}
+            className="rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-3 text-base text-neutral-100 outline-none transition focus:border-indigo-400"
             placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             required
           />
           <input
-            style={styles.input}
+            className="rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-3 text-base text-neutral-100 outline-none transition focus:border-indigo-400"
             type="email"
             placeholder="Email"
             value={email}
@@ -52,44 +52,35 @@ export default function Register() {
             required
           />
           <input
-            style={styles.input}
+            className="rounded-lg border border-neutral-700 bg-neutral-950 px-4 py-3 text-base text-neutral-100 outline-none transition focus:border-indigo-400"
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <button style={styles.button} type="submit" disabled={loading}>
+          <button
+            className="rounded-lg bg-indigo-600 px-4 py-3 text-base font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-70"
+            type="submit"
+            disabled={loading}
+          >
             {loading ? 'Creating account...' : 'Register'}
           </button>
         </form>
 
         <a
           href={(import.meta.env.VITE_API_URL || 'http://localhost:4000') + '/auth/google'}
-          style={styles.googleButton}
+          className="mt-4 block rounded-lg bg-white px-4 py-3 text-center font-bold text-black no-underline transition hover:bg-neutral-100"
         >
           Continue with Google on v-chat
         </a>
 
-        {error && <p style={styles.error}>{error}</p>}
+        {error && <p className="mt-4 text-rose-400">{error}</p>}
 
-        <p style={styles.link}>
-          Already have an account? <Link to="/login">Login</Link>
+        <p className="mt-4 text-center text-neutral-400">
+          Already have an account? <Link className="text-indigo-300 hover:text-indigo-200" to="/login">Login</Link>
         </p>
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  container: { minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f0f0f' },
-  card: { background: '#1a1a1a', padding: '2.5rem', borderRadius: '12px', width: '100%', maxWidth: '420px' },
-  title: { marginBottom: '1.5rem', fontSize: '1.8rem', color: '#f0f0f0' },
-  brand: { marginTop: '-0.75rem', marginBottom: '1.5rem', color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.12em', fontSize: '0.85rem' },
-  form: { display: 'flex', flexDirection: 'column', gap: '1rem' },
-  input: { padding: '0.75rem 1rem', borderRadius: '8px', border: '1px solid #333', background: '#0f0f0f', color: '#f0f0f0', fontSize: '1rem' },
-  button: { padding: '0.75rem', borderRadius: '8px', background: '#4f46e5', color: '#fff', border: 'none', fontSize: '1rem', cursor: 'pointer' },
-  googleButton: { display: 'block', marginTop: '1rem', padding: '0.75rem', borderRadius: '8px', background: '#fff', color: '#000', textAlign: 'center', textDecoration: 'none', fontWeight: 'bold' },
-  error: { marginTop: '1rem', color: '#f87171' },
-  link: { marginTop: '1rem', color: '#888', textAlign: 'center' },
-};

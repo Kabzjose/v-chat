@@ -52,241 +52,103 @@ export default function RoomList() {
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.hero}>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 px-5 py-8 text-slate-50 md:px-8">
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <p style={styles.eyebrow}>v-chat</p>
-          <h1 style={styles.title}>Welcome, {user?.username}</h1>
-          <p style={styles.subtitle}>
+          <p className="m-0 text-[0.85rem] uppercase tracking-[0.12em] text-slate-300">v-chat</p>
+          <h1 className="my-2 text-4xl font-semibold text-white">Welcome, {user?.username}</h1>
+          <p className="m-0 max-w-2xl text-slate-300">
             Pick a room to jump into the conversation, or create a new one for your team.
           </p>
         </div>
 
-        <button type="button" style={styles.secondaryButton} onClick={logout}>
+        <button
+          type="button"
+          className="rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-white transition hover:bg-white/10"
+          onClick={logout}
+        >
           Logout
         </button>
       </div>
 
-      <div style={styles.grid}>
-        <section style={styles.panel}>
-          <h2 style={styles.sectionTitle}>Create Room</h2>
-          <p style={styles.sectionCopy}>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="rounded-[20px] border border-slate-600/30 bg-slate-950/60 p-6 shadow-2xl shadow-black/20 backdrop-blur">
+          <h2 className="m-0 text-[1.3rem] font-semibold text-white">Create Room</h2>
+          <p className="mb-5 mt-3 text-slate-300">
             Start a fresh space for your team, topic, or conversation.
           </p>
 
-          <form onSubmit={handleCreateRoom} style={styles.form}>
+          <form onSubmit={handleCreateRoom} className="flex flex-col gap-4">
             <input
-              style={styles.input}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 text-white outline-none transition focus:border-emerald-400"
               placeholder="Room name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
             />
             <textarea
-              style={styles.textarea}
+              className="resize-y rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 text-white outline-none transition focus:border-emerald-400"
               placeholder="What is this room about?"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
             />
             <input
-              style={styles.input}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 text-white outline-none transition focus:border-emerald-400"
               type="password"
               placeholder="Room password (optional)"
               value={roomPassword}
               onChange={(e) => setRoomPassword(e.target.value)}
             />
-            <button type="submit" style={styles.primaryButton} disabled={submitting}>
+            <button
+              type="submit"
+              className="rounded-xl bg-emerald-400 px-4 py-4 font-bold text-emerald-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={submitting}
+            >
               {submitting ? 'Creating...' : 'Create room'}
             </button>
           </form>
         </section>
 
-        <section style={styles.panel}>
-          <h2 style={styles.sectionTitle}>Available Rooms</h2>
-          <p style={styles.sectionCopy}>
+        <section className="rounded-[20px] border border-slate-600/30 bg-slate-950/60 p-6 shadow-2xl shadow-black/20 backdrop-blur">
+          <h2 className="m-0 text-[1.3rem] font-semibold text-white">Available Rooms</h2>
+          <p className="mb-5 mt-3 text-slate-300">
             Browse active spaces and jump into the conversation.
           </p>
 
-          {loading ? <p style={styles.muted}>Loading rooms...</p> : null}
-          {!loading && rooms.length === 0 ? <p style={styles.muted}>No rooms yet. Create the first one.</p> : null}
+          {loading ? <p className="text-slate-300">Loading rooms...</p> : null}
+          {!loading && rooms.length === 0 ? <p className="text-slate-300">No rooms yet. Create the first one.</p> : null}
 
-          <div style={styles.roomList}>
+          <div className="flex flex-col gap-3">
             {rooms.map((room) => (
               <button
                 key={room.id}
                 type="button"
-                style={styles.roomCard}
+                className="w-full rounded-2xl border border-slate-600/30 bg-slate-900 px-4 py-4 text-left text-slate-50 transition hover:border-slate-400/50 hover:bg-slate-800"
                 onClick={() => navigate('/rooms/' + room.id)}
               >
-                <div style={styles.roomCardHeader}>
-                  <div style={styles.roomTitleWrap}>
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-wrap items-center gap-2">
                     <strong>{room.name}</strong>
-                    {room.is_protected ? <span style={styles.privateBadge}>Private</span> : null}
+                    {room.is_protected ? (
+                      <span className="rounded-full bg-emerald-400/15 px-2.5 py-1 text-[0.75rem] uppercase tracking-[0.08em] text-emerald-200">
+                        Private
+                      </span>
+                    ) : null}
                   </div>
-                  <span style={styles.count}>{room.message_count} messages</span>
+                  <span className="text-sm text-slate-300">{room.message_count} messages</span>
                 </div>
-                <p style={styles.roomDescription}>
+                <p className="my-3 text-slate-200">
                   {room.description || 'No description yet.'}
                 </p>
-                <p style={styles.meta}>Created by {room.creator || 'Unknown user'}</p>
+                <p className="m-0 text-sm text-slate-400">Created by {room.creator || 'Unknown user'}</p>
               </button>
             ))}
           </div>
 
-          {error ? <p style={styles.error}>{error}</p> : null}
+          {error ? <p className="mt-4 text-rose-300">{error}</p> : null}
         </section>
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  page: {
-    minHeight: '100vh',
-    padding: '2rem',
-    color: '#f5f7fb',
-    background: 'linear-gradient(135deg, #081120 0%, #111b33 45%, #1b2f52 100%)'
-  },
-  hero: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '1rem',
-    alignItems: 'flex-start',
-    marginBottom: '2rem'
-  },
-  eyebrow: {
-    margin: 0,
-    textTransform: 'uppercase',
-    letterSpacing: '0.12em',
-    color: '#9db3d5',
-    fontSize: '0.85rem'
-  },
-  title: {
-    margin: '0.5rem 0',
-    color: '#fff',
-    fontSize: '2.4rem'
-  },
-  subtitle: {
-    margin: 0,
-    maxWidth: '42rem',
-    color: '#c7d3ea'
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-    gap: '1.5rem'
-  },
-  panel: {
-    background: 'rgba(7, 14, 27, 0.74)',
-    border: '1px solid rgba(157, 179, 213, 0.18)',
-    borderRadius: '20px',
-    padding: '1.5rem',
-    boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)',
-    textAlign: 'left'
-  },
-  sectionTitle: {
-    margin: 0,
-    color: '#fff',
-    fontSize: '1.3rem'
-  },
-  sectionCopy: {
-    margin: '0.75rem 0 1.25rem',
-    color: '#a8b8d6'
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.9rem'
-  },
-  input: {
-    borderRadius: '12px',
-    border: '1px solid #32476d',
-    background: '#0c1628',
-    color: '#f5f7fb',
-    padding: '0.9rem 1rem',
-    fontSize: '1rem'
-  },
-  textarea: {
-    borderRadius: '12px',
-    border: '1px solid #32476d',
-    background: '#0c1628',
-    color: '#f5f7fb',
-    padding: '0.9rem 1rem',
-    fontSize: '1rem',
-    resize: 'vertical'
-  },
-  primaryButton: {
-    border: 'none',
-    borderRadius: '12px',
-    background: '#53c0a7',
-    color: '#08241e',
-    padding: '0.9rem 1rem',
-    fontWeight: 700,
-    cursor: 'pointer'
-  },
-  secondaryButton: {
-    border: '1px solid rgba(255,255,255,0.18)',
-    borderRadius: '12px',
-    background: 'rgba(255,255,255,0.04)',
-    color: '#fff',
-    padding: '0.8rem 1rem',
-    cursor: 'pointer'
-  },
-  muted: {
-    color: '#a8b8d6'
-  },
-  roomList: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.85rem'
-  },
-  roomCard: {
-    width: '100%',
-    textAlign: 'left',
-    borderRadius: '16px',
-    padding: '1rem',
-    border: '1px solid rgba(157, 179, 213, 0.18)',
-    background: '#0f1b31',
-    color: '#f5f7fb',
-    cursor: 'pointer'
-  },
-  roomCardHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    gap: '1rem',
-    alignItems: 'center'
-  },
-  roomTitleWrap: {
-    display: 'flex',
-    gap: '0.6rem',
-    alignItems: 'center',
-    flexWrap: 'wrap'
-  },
-  count: {
-    color: '#9db3d5',
-    fontSize: '0.9rem'
-  },
-  privateBadge: {
-    padding: '0.18rem 0.55rem',
-    borderRadius: '999px',
-    background: 'rgba(83, 192, 167, 0.16)',
-    color: '#8ef0d8',
-    fontSize: '0.75rem',
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em'
-  },
-  roomDescription: {
-    margin: '0.6rem 0',
-    color: '#c7d3ea'
-  },
-  meta: {
-    margin: 0,
-    color: '#84a0ca',
-    fontSize: '0.9rem'
-  },
-  error: {
-    marginTop: '1rem',
-    color: '#ff9ca3'
-  }
-};
