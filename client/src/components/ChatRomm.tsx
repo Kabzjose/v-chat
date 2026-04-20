@@ -60,16 +60,32 @@ export default function ChatRomm() {
 
     loadRoom();
   }, [roomId]);
-// listen for online/offline events
 useEffect(() => {
-  socket.emit('get_online_users');
+  // request online users only when socket is ready
+  const requestOnlineUsers = () => {
+    socket.emit('get_online_users');
+  };
+
+  // if already connected, request immediately
+  if (socket.connected) {
+    requestOnlineUsers();
+  }
+
+  // also request when socket connects (in case it wasn't connected yet)
+  socket.on('connect', requestOnlineUsers);
 
   socket.on('online_users', (users: OnlineUser[]) => {
+    console.log('online users received:', users); // debug
     setOnlineUsers(users);
   });
 
-  socket.on('user_online', (user: OnlineUser) => {
-    setOnlineUsers(prev => [...prev, user]);
+  socket.on('user_online', (newUser: OnlineUser) => {
+    setOnlineUsers(prev => {
+      // avoid duplicate entries
+      const exists = prev.find(u => u.userId === newUser.userId);
+      if (exists) return prev;
+      return [...prev, newUser];
+    });
   });
 
   socket.on('user_offline', ({ userId }: { userId: string }) => {
@@ -77,6 +93,7 @@ useEffect(() => {
   });
 
   return () => {
+    socket.off('connect', requestOnlineUsers);
     socket.off('online_users');
     socket.off('user_online');
     socket.off('user_offline');
