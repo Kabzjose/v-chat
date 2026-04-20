@@ -8,7 +8,7 @@ export const registerSocketHandlers = (io) => {
     const users = new Map();
 
     for (const roomSocket of sockets) {
-      const roomUser = roomSocket.user;
+      const roomUser = roomSocket.data?.user || roomSocket.user;
       if (!roomUser) continue;
 
       users.set(String(roomUser.id), {
@@ -32,6 +32,7 @@ export const registerSocketHandlers = (io) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       socket.user = decoded;
+      socket.data.user = decoded;
       next();
     } catch {
       next(new Error('Invalid token'));
@@ -78,7 +79,7 @@ export const registerSocketHandlers = (io) => {
         if (room !== socket.id && room !== previousRoomId) socket.leave(room);
       });
 
-      socket.join(nextRoomId);
+      await socket.join(nextRoomId);
       socket.currentRoom = nextRoomId;
 
       // ─── CACHE: load messages from Redis first ──────
