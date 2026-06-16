@@ -42,6 +42,10 @@ export const registerSocketHandlers = (io) => {
   io.on('connection', async (socket) => {
     console.log(socket.user.username + ' connected');
 
+    // ─── JOIN PERSONAL ROOM ────────────────────────────
+    // allows targeted events (e.g. kick) to be sent to this specific user
+    socket.join(`user:${socket.user.id}`);
+
     // ─── MARK USER ONLINE ──────────────────────────────
     // store in Redis with 60 second expiry
     await redis.setex(
@@ -176,6 +180,12 @@ export const registerSocketHandlers = (io) => {
       await emitRoomPresence(roomId);
     });
 
+    // ─── KICK MEMBER ────────────────────────────────────
+    // only the kicked user (in their personal room) receives this event
+    socket.on('kick_member', ({ roomId, userId }) => {
+      io.to(`user:${userId}`).emit('kicked_from_room', { roomId });
+    });
+
     // ─── DISCONNECT ─────────────────────────────────────
     socket.on('disconnect', async () => {
       clearInterval(heartbeat); // stop the heartbeat
@@ -191,14 +201,3 @@ export const registerSocketHandlers = (io) => {
     });
   });
 };
-
-// server side — emit kick to the removed user
-socket.on('kick_member', ({ roomId, userId }) => {
-  // find the socket of the kicked user and emit to them
-  io.to(`user:${userId}`).emit('kicked_from_room', { roomId });
-});
-
-
-socket.on('connection', () => {
-  socket.join(`user:${socket.data.userId}`);
-});
