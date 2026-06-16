@@ -2,7 +2,11 @@ import { useEffect, useState, type FormEvent } from 'react';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 
-export default function ProfileEditor() {
+interface ProfileEditorProps {
+  onClose?: () => void;
+}
+
+export default function ProfileEditor({ onClose }: ProfileEditorProps) {
   const { user, login } = useAuth();
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -32,6 +36,9 @@ export default function ProfileEditor() {
 
       login(res.data.user, res.data.token);
       setSaved('Profile updated');
+      if (onClose) {
+        onClose();
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || 'Failed to update profile');
     } finally {

@@ -13,6 +13,7 @@ export default function RoomList() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -54,6 +55,28 @@ export default function RoomList() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 px-5 py-8 text-slate-50 md:px-8">
+      {isProfileModalOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => setIsProfileModalOpen(false)}
+        >
+          <div 
+            className="relative w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-slate-800/80 text-white hover:bg-slate-700 transition"
+              onClick={() => setIsProfileModalOpen(false)}
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <ProfileEditor onClose={() => setIsProfileModalOpen(false)} />
+          </div>
+        </div>
+      )}
+
       <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="m-0 text-[0.85rem] uppercase tracking-[0.12em] text-slate-300">v-chat</p>
@@ -63,17 +86,22 @@ export default function RoomList() {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-white transition hover:bg-white/10"
-          onClick={logout}
-        >
-          Logout
-        </button>
-      </div>
-
-      <div className="mb-6">
-        <ProfileEditor />
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-white transition hover:bg-white/10"
+            onClick={() => setIsProfileModalOpen(true)}
+          >
+            Edit Profile
+          </button>
+          <button
+            type="button"
+            className="rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-white transition hover:bg-white/10"
+            onClick={logout}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
