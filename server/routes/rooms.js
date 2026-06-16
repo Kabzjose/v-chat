@@ -25,6 +25,7 @@ router.get('/', async (req, res) => {
 
     const result = await pool.query(`
       SELECT rooms.id, rooms.name, rooms.description, rooms.created_at,
+       rooms.created_by, 
       users.username as creator,
       (rooms.password_hash IS NOT NULL) as is_protected,
       COUNT(messages.id) as message_count
