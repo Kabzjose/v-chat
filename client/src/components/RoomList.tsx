@@ -6,7 +6,7 @@ import type { Room } from '../types';
 import ProfileEditor from './ProfileEditor';
 import { Eye, EyeOff } from "lucide-react";
 
-const [showPassword, setShowPassword] = useState(false);
+
 
 
 export default function RoomList() {
@@ -18,6 +18,7 @@ export default function RoomList() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
   const { user, logout } = useAuth();
