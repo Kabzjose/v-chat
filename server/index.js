@@ -47,6 +47,7 @@ app.use(passport.session());
 app.use('/auth', authRouter);
 app.use('/api/rooms', roomsRouter);
 
+
 registerSocketHandlers(io);
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
