@@ -4,6 +4,10 @@ import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import type { Room } from '../types';
 import ProfileEditor from './ProfileEditor';
+import { Eye, EyeOff } from "lucide-react";
+
+const [showPassword, setShowPassword] = useState(false);
+
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -126,13 +130,22 @@ export default function RoomList() {
               onChange={(e) => setDescription(e.target.value)}
               rows={4}
             />
-            <input
-              className="rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 text-white outline-none transition focus:border-emerald-400"
-              type="password"
-              placeholder="Room password (optional)"
-              value={roomPassword}
-              onChange={(e) => setRoomPassword(e.target.value)}
-            />
+            <div className="relative">
+  <input
+    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 text-white outline-none transition focus:border-emerald-400 pr-12"
+    type={showPassword ? "text" : "password"}
+    placeholder="Room password (optional)"
+    value={roomPassword}
+    onChange={(e) => setRoomPassword(e.target.value)}
+  />
+  <button
+    type="button"
+    onClick={() => setShowPassword((prev) => !prev)}
+    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-400 transition"
+  >
+    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+  </button>
+</div>
             <button
               type="submit"
               className="rounded-xl bg-emerald-400 px-4 py-4 font-bold text-emerald-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-70"
