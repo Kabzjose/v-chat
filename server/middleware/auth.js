@@ -14,6 +14,6 @@ export const verifyToken = (req, res, next) => {
     req.user = decoded; // attach user info to request
     next();             // move on to the actual route
   } catch (err) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return res.status(401).json({ error: 'Invalid token-Please login again' });
   }
 };
