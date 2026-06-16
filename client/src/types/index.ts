@@ -15,6 +15,7 @@ export interface Room {
   message_count: number;
   created_at: string;
   is_protected?: boolean;
+  created_by: number;
 }
 
 // what a reaction looks like

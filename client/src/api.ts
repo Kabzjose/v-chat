@@ -3,7 +3,7 @@ import type { AuthResponse, Message, ProfileUpdatePayload, Room } from './types'
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
-// attach token to every request automatically
+// Attach token to every request automatically
 axios.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) config.headers.Authorization = 'Bearer ' + token;
@@ -33,6 +33,15 @@ const api = {
 
   unlockRoom: (roomId: number, password: string) =>
     axios.post<{ ok: boolean }>(BASE + '/api/rooms/' + roomId + '/unlock', { password }),
+
+  getMembers: (roomId: number) =>
+    axios.get(BASE + `/api/rooms/${roomId}/members`),
+
+  removeMember: (roomId: number, userId: number) =>
+    axios.delete(BASE + `/api/rooms/${roomId}/members/${userId}`),
+
+  deleteRoom: (roomId: number) =>
+    axios.delete(BASE + `/api/rooms/${roomId}`),
 
   // messages
   getMessages: (roomId: number, roomPassword?: string) =>

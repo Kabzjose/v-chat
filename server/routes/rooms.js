@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import pool from '../db.js';
 import { verifyToken } from '../middleware/auth.js';
 
+
 const router = express.Router();
 let schemaReadyPromise;
 
@@ -180,6 +181,80 @@ router.get('/:roomId/messages', async (req, res) => {
       ORDER BY messages.created_at ASC
       LIMIT 50
     `, [roomId]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+
+// ─── REMOVE A MEMBER (admin only) ───────────────────────
+router.delete('/:roomId/members/:userId', verifyToken, async (req, res) => {
+  const { roomId, userId } = req.params;
+
+  try {
+    // check requester is the room creator
+    const room = await pool.query(
+      `SELECT created_by FROM rooms WHERE id = $1`, [roomId]
+    );
+
+    if (!room.rows[0])
+      return res.status(404).json({ error: 'Room not found' });
+
+    if (room.rows[0].created_by !== req.user.id)
+      return res.status(403).json({ error: 'Only the room creator can remove members' });
+
+    // prevent creator from removing themselves
+    if (parseInt(userId) === req.user.id)
+      return res.status(400).json({ error: 'Cannot remove yourself' });
+
+    await pool.query(
+      `DELETE FROM room_members WHERE room_id = $1 AND user_id = $2`,
+      [roomId, userId]
+    );
+
+    res.json({ message: 'Member removed' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─── DELETE ROOM (creator only) ─────────────────────────
+router.delete('/:roomId', verifyToken, async (req, res) => {
+  const { roomId } = req.params;
+
+  try {
+    const room = await pool.query(
+      `SELECT created_by FROM rooms WHERE id = $1`, [roomId]
+    );
+
+    if (!room.rows[0])
+      return res.status(404).json({ error: 'Room not found' });
+
+    if (room.rows[0].created_by !== req.user.id)
+      return res.status(403).json({ error: 'Only the room creator can delete this room' });
+
+    await pool.query(`DELETE FROM rooms WHERE id = $1`, [roomId]);
+
+    res.json({ message: 'Room deleted' });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// ─── GET ROOM MEMBERS ────────────────────────────────────
+router.get('/:roomId/members', verifyToken, async (req, res) => {
+  const { roomId } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT u.id, u.username, u.avatar, rm.joined_at
+       FROM room_members rm
+       JOIN users u ON u.id = rm.user_id
+       WHERE rm.room_id = $1
+       ORDER BY rm.joined_at ASC`,
+      [roomId]
+    );
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: 'Server error' });

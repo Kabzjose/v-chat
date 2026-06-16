@@ -191,3 +191,14 @@ export const registerSocketHandlers = (io) => {
     });
   });
 };
+
+// server side — emit kick to the removed user
+socket.on('kick_member', ({ roomId, userId }) => {
+  // find the socket of the kicked user and emit to them
+  io.to(`user:${userId}`).emit('kicked_from_room', { roomId });
+});
+
+
+socket.on('connection', () => {
+  socket.join(`user:${socket.data.userId}`);
+});

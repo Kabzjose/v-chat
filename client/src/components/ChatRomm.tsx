@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import Message from './Message';
 import { useAuth } from '../context/AuthContext';
 import socket from '../socket';
 import type { Message as ChatMessage, OnlineUser, Reaction, Room } from '../types';
 
-export default function ChatRomm() {
+export default function ChatRoom() {
   const { roomId } = useParams();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [room, setRoom] = useState<Room | null>(null);
   const [roomPassword, setRoomPassword] = useState('');
   const [unlockInput, setUnlockInput] = useState('');
@@ -19,10 +20,14 @@ export default function ChatRomm() {
   const [status, setStatus] = useState('Connecting to room...');
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
+  const [members, setMembers] = useState<{ id: number; username: string; avatar: string | null }[]>([]);
   const [error, setError] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
 
+  const isCreator = !!(user && room && user.id === room.created_by);
+
+  // ─── LOAD ROOM ────────────────────────────────────────
   useEffect(() => {
     const loadRoom = async () => {
       if (!roomId) return;
@@ -56,6 +61,22 @@ export default function ChatRomm() {
     loadRoom();
   }, [roomId]);
 
+  // ─── LOAD MEMBERS (for creator) ───────────────────────
+  useEffect(() => {
+    const loadMembers = async () => {
+      if (!roomId || !isUnlocked || !isCreator) return;
+      try {
+        const res = await api.getMembers(Number(roomId));
+        setMembers(res.data);
+      } catch {
+        // non-critical — silently ignore
+      }
+    };
+
+    loadMembers();
+  }, [roomId, isUnlocked, isCreator]);
+
+  // ─── LOAD MESSAGES ────────────────────────────────────
   useEffect(() => {
     const loadMessages = async () => {
       if (!roomId || !isUnlocked) return;
@@ -71,13 +92,14 @@ export default function ChatRomm() {
     loadMessages();
   }, [roomId, isUnlocked, roomPassword]);
 
+  // ─── JOIN ROOM VIA SOCKET ─────────────────────────────
   useEffect(() => {
     if (!roomId || !socket.connected || !isUnlocked) return;
-
     socket.emit('join_room', { roomId, password: roomPassword || undefined });
     setStatus('Joined room #' + roomId);
   }, [roomId, isUnlocked, roomPassword]);
 
+  // ─── SOCKET EVENTS ────────────────────────────────────
   useEffect(() => {
     const handleConnect = () => {
       if (!roomId || !isUnlocked) return;
@@ -123,6 +145,14 @@ export default function ChatRomm() {
       setOnlineUsers(users);
     };
 
+    // ─── KICKED EVENT ─────────────────────────────────
+    const handleKicked = ({ roomId: kickedRoomId }: { roomId: number }) => {
+      if (String(kickedRoomId) === roomId) {
+        alert('You have been removed from this room.');
+        navigate('/rooms');
+      }
+    };
+
     socket.on('connect', handleConnect);
     socket.on('new_message', handleNewMessage);
     socket.on('reaction_updated', handleReactionUpdate);
@@ -132,6 +162,7 @@ export default function ChatRomm() {
     socket.on('user_stop_typing', handleUserStopTyping);
     socket.on('room_online_users', handleRoomOnlineUsers);
     socket.on('error', handleSocketError);
+    socket.on('kicked_from_room', handleKicked);
 
     if (socket.connected && roomId && isUnlocked) {
       socket.emit('join_room', { roomId, password: roomPassword || undefined });
@@ -148,22 +179,18 @@ export default function ChatRomm() {
       socket.off('user_stop_typing', handleUserStopTyping);
       socket.off('room_online_users', handleRoomOnlineUsers);
       socket.off('error', handleSocketError);
+      socket.off('kicked_from_room', handleKicked);
     };
   }, [roomId, isUnlocked, roomPassword]);
 
   useEffect(() => {
-    if (!roomId || !isUnlocked) {
-      setOnlineUsers([]);
-    }
+    if (!roomId || !isUnlocked) setOnlineUsers([]);
   }, [roomId, isUnlocked]);
 
   useEffect(() => {
     return () => {
       socket.emit('stop_typing');
-
-      if (typingTimeoutRef.current) {
-        window.clearTimeout(typingTimeoutRef.current);
-      }
+      if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current);
     };
   }, []);
 
@@ -171,10 +198,10 @@ export default function ChatRomm() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typingUsers]);
 
+  // ─── HANDLERS ─────────────────────────────────────────
   const sendMessage = () => {
     const content = input.trim();
     if (!content) return;
-
     socket.emit('send_message', { content });
     socket.emit('stop_typing');
     if (typingTimeoutRef.current) {
@@ -189,9 +216,29 @@ export default function ChatRomm() {
     sendMessage();
   };
 
+  const handleRemoveMember = async (userId: number) => {
+    if (!confirm('Remove this member from the room?')) return;
+    try {
+      await api.removeMember(Number(roomId), userId);
+      socket.emit('kick_member', { roomId, userId });
+      setMembers((current) => current.filter((m) => m.id !== userId));
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to remove member');
+    }
+  };
+
+  const handleDeleteRoom = async () => {
+    if (!confirm('Delete this room permanently? This cannot be undone.')) return;
+    try {
+      await api.deleteRoom(Number(roomId));
+      navigate('/rooms');
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Failed to delete room');
+    }
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key !== 'Enter' || e.shiftKey) return;
-
     e.preventDefault();
     sendMessage();
   };
@@ -199,11 +246,7 @@ export default function ChatRomm() {
   const handleInputChange = (value: string) => {
     setInput(value);
     socket.emit('typing');
-
-    if (typingTimeoutRef.current) {
-      window.clearTimeout(typingTimeoutRef.current);
-    }
-
+    if (typingTimeoutRef.current) window.clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = window.setTimeout(() => {
       socket.emit('stop_typing');
     }, 1200);
@@ -216,10 +259,8 @@ export default function ChatRomm() {
   const handleUnlockRoom = async (e: FormEvent) => {
     e.preventDefault();
     if (!roomId) return;
-
     setUnlocking(true);
     setError('');
-
     try {
       await api.unlockRoom(Number(roomId), unlockInput);
       sessionStorage.setItem('room-password-' + roomId, unlockInput);
@@ -233,6 +274,7 @@ export default function ChatRomm() {
     }
   };
 
+  // ─── LOCKED SCREEN ────────────────────────────────────
   if (room?.is_protected && !isUnlocked) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-sky-50 to-blue-100 px-5 py-8 text-slate-900 md:px-8">
@@ -242,18 +284,10 @@ export default function ChatRomm() {
             <h1 className="my-2 text-3xl font-semibold text-slate-900">{room.name}</h1>
             <p className="m-0 text-slate-600">This room is protected. Enter the password to continue.</p>
           </div>
-
-          <Link
-            to="/rooms"
-            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
-          >
+          <Link to="/rooms" className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50">
             Back to rooms
           </Link>
-
-          <Link
-            to="/rooms#profile"
-            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
-          >
+          <Link to="/rooms#profile" className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50">
             Edit profile
           </Link>
         </header>
@@ -276,38 +310,39 @@ export default function ChatRomm() {
               {unlocking ? 'Unlocking...' : 'Unlock room'}
             </button>
           </form>
-
           {error ? <p className="mb-0 mt-5 text-rose-600">{error}</p> : null}
         </section>
       </div>
     );
   }
 
+  // ─── MAIN CHAT VIEW ───────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-50 to-blue-100 px-5 py-8 text-slate-900 md:px-8">
       <header className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="m-0 text-[0.85rem] uppercase tracking-[0.12em] text-slate-500">v-chat</p>
           <h1 className="my-2 text-3xl font-semibold text-slate-900">{room?.name || 'Room #' + roomId}</h1>
-          <p className="m-0 text-slate-600">
-            Live conversation with your team in one shared space.
-          </p>
+          <p className="m-0 text-slate-600">Live conversation with your team in one shared space.</p>
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <Link
-            to="/rooms"
-            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
-          >
+          <Link to="/rooms" className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50">
             Back to rooms
           </Link>
-
-          <Link
-            to="/rooms#profile"
-            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
-          >
+          <Link to="/rooms#profile" className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50">
             Edit profile
           </Link>
+
+          {/* ─── DELETE ROOM (creator only) ─── */}
+          {isCreator && (
+            <button
+              onClick={handleDeleteRoom}
+              className="inline-flex rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-red-600 transition hover:bg-red-100"
+            >
+              Delete Room
+            </button>
+          )}
         </div>
       </header>
 
@@ -318,11 +353,32 @@ export default function ChatRomm() {
           <span>Signed in as {user?.username}</span>
         </div>
 
+        {/* ─── MEMBERS LIST (creator only) ─── */}
+        {isCreator && members.length > 0 && (
+          <div className="border-b border-slate-200 px-5 py-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Members</p>
+            <div className="flex flex-wrap gap-2">
+              {members.map((member) => (
+                <div key={member.id} className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-1.5 text-sm">
+                  <span>{member.username}</span>
+                  {member.id !== user?.id && (
+                    <button
+                      onClick={() => handleRemoveMember(member.id)}
+                      className="text-red-400 hover:text-red-600 transition font-bold"
+                      title="Remove member"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto p-5">
           {messages.length === 0 ? (
-            <p className="m-0 text-slate-600">
-              No messages yet. Start the conversation.
-            </p>
+            <p className="m-0 text-slate-600">No messages yet. Start the conversation.</p>
           ) : null}
 
           {messages.map((message) => (

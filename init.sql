@@ -38,6 +38,18 @@ CREATE TABLE IF NOT EXISTS session (
   expire TIMESTAMP(6) NOT NULL
 );
 
+-- Track room members
+CREATE TABLE room_members (
+  id SERIAL PRIMARY KEY,
+  room_id INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  joined_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(room_id, user_id)
+);
+
+-- Create indexes
 CREATE INDEX IF NOT EXISTS idx_messages_room ON messages(room_id);
 CREATE INDEX IF NOT EXISTS idx_reactions_message ON reactions(message_id);
 CREATE INDEX IF NOT EXISTS idx_session_expire ON session(expire);
+CREATE INDEX IF NOT EXISTS idx_room_members_room ON room_members(room_id);
+CREATE INDEX IF NOT EXISTS idx_room_members_user ON room_members(user_id);
