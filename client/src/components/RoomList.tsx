@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../context/AuthContext';
 import type { Room } from '../types';
+import ProfileEditor from './ProfileEditor';
 
 export default function RoomList() {
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -69,6 +70,10 @@ export default function RoomList() {
         >
           Logout
         </button>
+      </div>
+
+      <div className="mb-6">
+        <ProfileEditor />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

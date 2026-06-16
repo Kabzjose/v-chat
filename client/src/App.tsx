@@ -32,7 +32,7 @@ const AuthCallback = () => {
   if (token) {
     // decode the JWT to get user info
     const payload = JSON.parse(atob(token.split('.')[1]));
-    login({ id: payload.id, username: payload.username, email: payload.email, avatar: null }, token);
+    login({ id: payload.id, username: payload.username, email: payload.email, avatar: payload.avatar ?? null }, token);
   }
 
   return <Navigate to="/rooms" />;

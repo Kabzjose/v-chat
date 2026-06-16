@@ -249,6 +249,13 @@ export default function ChatRomm() {
           >
             Back to rooms
           </Link>
+
+          <Link
+            to="/rooms#profile"
+            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
+          >
+            Edit profile
+          </Link>
         </header>
 
         <section className="rounded-[24px] border border-slate-200 bg-white/80 p-6 shadow-xl shadow-slate-300/30 backdrop-blur">
@@ -287,12 +294,21 @@ export default function ChatRomm() {
           </p>
         </div>
 
-        <Link
-          to="/rooms"
-          className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
-        >
-          Back to rooms
-        </Link>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/rooms"
+            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
+          >
+            Back to rooms
+          </Link>
+
+          <Link
+            to="/rooms#profile"
+            className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-3 no-underline transition hover:border-slate-400 hover:bg-slate-50"
+          >
+            Edit profile
+          </Link>
+        </div>
       </header>
 
       <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white/80 shadow-xl shadow-slate-300/30 backdrop-blur">

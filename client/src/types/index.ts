@@ -44,3 +44,9 @@ export interface AuthResponse {
   user: User;
   token: string;
 }
+
+export interface ProfileUpdatePayload {
+  username?: string;
+  email?: string;
+  avatar?: string | null;
+}

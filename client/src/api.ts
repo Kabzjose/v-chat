@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AuthResponse, Room, Message } from './types';
+import type { AuthResponse, Message, ProfileUpdatePayload, Room } from './types';
 
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -17,6 +17,9 @@ const api = {
 
   login: (email: string, password: string) =>
     axios.post<AuthResponse>(BASE + '/auth/login', { email, password }),
+
+  updateProfile: (profile: ProfileUpdatePayload) =>
+    axios.put<AuthResponse>(BASE + '/auth/profile', profile),
 
   // rooms
   getRooms: () =>

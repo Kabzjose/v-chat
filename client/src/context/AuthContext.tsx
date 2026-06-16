@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('user', JSON.stringify(user));
 
     // connect socket with token
+    socket.disconnect();
     socket.auth = { token };
     socket.connect();
   };

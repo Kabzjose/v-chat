@@ -4,17 +4,25 @@ import jwt from 'jsonwebtoken';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import pool from '../db.js';
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // helper — generates a JWT token for a user
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user.id, username: user.username, email: user.email },
+    { id: user.id, username: user.username, email: user.email, avatar: user.avatar || null },
     process.env.JWT_SECRET,
     { expiresIn: '7d' } // token expires in 7 days
   );
 };
+
+const serializeUser = (user) => ({
+  id: user.id,
+  username: user.username,
+  email: user.email,
+  avatar: user.avatar || null
+});
 
 // ─── REGISTER ───────────────────────────────────────────
 router.post('/register', async (req, res) => {
@@ -29,14 +37,14 @@ router.post('/register', async (req, res) => {
 
     const result = await pool.query(
       `INSERT INTO users (username, email, password)
-       VALUES ($1, $2, $3) RETURNING id, username, email`,
+       VALUES ($1, $2, $3) RETURNING id, username, email, avatar`,
       [username, email, hashed]
     );
 
     const user = result.rows[0];
     const token = generateToken(user);
 
-    res.status(201).json({ user, token });
+    res.status(201).json({ user: serializeUser(user), token });
   } catch (err) {
     if (err.code === '23505')
       return res.status(409).json({ error: 'Username or email already taken' });
@@ -53,7 +61,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT * FROM users WHERE email = $1`, [email]
+      `SELECT id, username, email, password, avatar FROM users WHERE email = $1`, [email]
     );
 
     const user = result.rows[0];
@@ -75,11 +83,68 @@ router.post('/login', async (req, res) => {
 });
 
 // ─── GOOGLE OAUTH ────────────────────────────────────────
-passport.use(new GoogleStrategy({
+    res.json({ user: serializeUser(user), token });
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   callbackURL: process.env.BASE_URL + '/auth/google/callback'
 }, async (accessToken, refreshToken, profile, done) => {
+
+// ─── UPDATE PROFILE ────────────────────────────────────
+router.put('/profile', verifyToken, async (req, res) => {
+  const { username, email, avatar } = req.body;
+  const updates = [];
+  const values = [];
+
+  if (typeof username === 'string') {
+    const nextUsername = username.trim();
+    if (!nextUsername) {
+      return res.status(400).json({ error: 'Username cannot be empty' });
+    }
+    updates.push(`username = $${values.length + 1}`);
+    values.push(nextUsername);
+  }
+
+  if (typeof email === 'string') {
+    const nextEmail = email.trim();
+    if (!nextEmail) {
+      return res.status(400).json({ error: 'Email cannot be empty' });
+    }
+    updates.push(`email = $${values.length + 1}`);
+    values.push(nextEmail);
+  }
+
+  if (avatar !== undefined) {
+    updates.push(`avatar = $${values.length + 1}`);
+    values.push(avatar === '' ? null : avatar);
+  }
+
+  if (!updates.length) {
+    return res.status(400).json({ error: 'No changes provided' });
+  }
+
+  try {
+    values.push(req.user.id);
+
+    const result = await pool.query(
+      `UPDATE users
+       SET ${updates.join(', ')}
+       WHERE id = $${values.length}
+       RETURNING id, username, email, avatar`,
+      values
+    );
+
+    const user = result.rows[0];
+    const token = generateToken(user);
+
+    res.json({ user: serializeUser(user), token });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Username or email already taken' });
+    }
+
+    res.status(500).json({ error: 'Server error' });
+  }
+});
   try {
     // check if user already exists
     let result = await pool.query(
